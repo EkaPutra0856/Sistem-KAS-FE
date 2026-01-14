@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<User>
+  register: (name: string, email: string, password: string, passwordConfirmation: string) => Promise<User>
   updateProfilePhoto: (file: File, previewUrl?: string) => Promise<User>
   logout: () => Promise<void>
   isAuthenticated: boolean
@@ -109,6 +110,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authenticatedUser
   }
 
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    passwordConfirmation: string,
+  ): Promise<User> => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email, password, password_confirmation: passwordConfirmation }),
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}))
+      const message = errorBody?.message || Object.values(errorBody?.errors || {})?.[0]?.[0] || "Register failed"
+      throw new Error(message)
+    }
+
+    const data = await response.json()
+
+    const newUser: User = {
+      id: data.user.id,
+      email: data.user.email,
+      name: data.user.name,
+      role: data.user.role as UserRole,
+      avatar: data.user.profile_photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.user.email}`,
+    }
+
+    setUser(newUser)
+    localStorage.setItem("authUser", JSON.stringify(newUser))
+    localStorage.setItem("authToken", data.token)
+
+    return newUser
+  }
+
   const updateProfilePhoto = async (file: File, previewUrl?: string): Promise<User> => {
     const storedToken = localStorage.getItem("authToken")
     if (!storedToken) throw new Error("Not authenticated")
@@ -176,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     login,
+    register,
     updateProfilePhoto,
     logout,
     isAuthenticated: !!user,
