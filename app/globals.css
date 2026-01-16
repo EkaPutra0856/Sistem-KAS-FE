@@ -122,4 +122,23 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Ensure selects and their options use theme foreground/background
+     so the selected value and option list are readable in both themes. */
+  select {
+    color: var(--foreground);
+    background-color: transparent;
+  }
+
+  /* Some browsers allow styling options; we set color and background to match theme. */
+  select option {
+    color: var(--foreground);
+    background-color: var(--popover);
+  }
+
+  /* Improve visibility for focused/active selects */
+  select:focus {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }

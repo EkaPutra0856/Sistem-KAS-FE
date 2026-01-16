@@ -37,7 +37,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (user.role === "admin") {
       return [
         ...baseItems,
-        { href: "/admin/users", label: "Users", icon: Users },
+        { href: "/admin/datauser", label: "Data User", icon: Users },
         { href: "/admin/logs", label: "System Logs", icon: BarChart3 },
         { href: "/admin/settings", label: "Settings", icon: Settings },
       ]
