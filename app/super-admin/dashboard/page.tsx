@@ -2,49 +2,39 @@
 
 import { useAuth } from "@/lib/auth-context"
 import { Card } from "@/components/ui/card"
-import { Users, TrendingUp, AlertTriangle, Activity } from "lucide-react"
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
+import { Badge } from "@/components/ui/badge"
+import { Users, TrendingUp, AlertTriangle, Activity, ShieldCheck, Wallet2, Building2 } from "lucide-react"
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from "recharts"
 
 export default function SuperAdminDashboard() {
   const { user } = useAuth()
 
-  const analyticsData = [
-    { date: "Mon", users: 1200, admins: 5, activity: 2400 },
-    { date: "Tue", users: 1900, admins: 6, activity: 2210 },
-    { date: "Wed", users: 2100, admins: 5, activity: 2290 },
-    { date: "Thu", users: 2800, admins: 7, activity: 2000 },
-    { date: "Fri", users: 3200, admins: 8, activity: 2181 },
-    { date: "Sat", users: 2500, admins: 6, activity: 2500 },
-    { date: "Sun", users: 2800, admins: 7, activity: 2100 },
+  const orgTrend = [
+    { month: "Sep", communities: 8, admins: 12, totalKas: 8.2 },
+    { month: "Oct", communities: 9, admins: 14, totalKas: 9.1 },
+    { month: "Nov", communities: 10, admins: 15, totalKas: 9.8 },
+    { month: "Dec", communities: 11, admins: 17, totalKas: 10.4 },
+    { month: "Jan", communities: 12, admins: 18, totalKas: 11.2 },
   ]
 
-  const auditData = [
-    { time: "Mon", logins: 156, changes: 12, errors: 3 },
-    { time: "Tue", logins: 178, changes: 18, errors: 2 },
-    { time: "Wed", logins: 165, changes: 14, errors: 1 },
-    { time: "Thu", logins: 192, changes: 21, errors: 4 },
-    { time: "Fri", logins: 208, changes: 25, errors: 2 },
-    { time: "Sat", logins: 124, changes: 8, errors: 0 },
-    { time: "Sun", logins: 145, changes: 11, errors: 1 },
+  const riskData = [
+    { name: "Telat >7 hari", count: 4 },
+    { name: "Belum verifikasi", count: 7 },
+    { name: "Saldo minimum", count: 2 },
   ]
 
   return (
     <>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">System Analytics & Control</h1>
-        <p className="text-muted-foreground">Complete system overview and management</p>
+      <div className="mb-8 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm text-muted-foreground">Super Admin • Oversight kas</p>
+          <h1 className="text-3xl font-bold">Gambaran organisasi</h1>
+          <p className="text-muted-foreground mt-1">Pantau komunitas, admin, dan kesehatan kas lintas tim.</p>
+        </div>
+        <Badge variant="secondary" className="gap-2">
+          <ShieldCheck className="w-4 h-4" />
+          Akses penuh
+        </Badge>
       </div>
 
       {/* Key Metrics */}
@@ -52,133 +42,125 @@ export default function SuperAdminDashboard() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Users</p>
-              <p className="text-2xl font-bold">15,342</p>
+              <p className="text-sm text-muted-foreground mb-1">Total komunitas</p>
+              <p className="text-2xl font-bold">12</p>
             </div>
-            <Users className="w-10 h-10 text-primary/20" />
+            <Building2 className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-green-600 mt-2">+8.2% this week</p>
+          <p className="text-xs text-green-600 mt-2">+1 bulan ini</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Admin Accounts</p>
-              <p className="text-2xl font-bold">48</p>
+              <p className="text-sm text-muted-foreground mb-1">Admin aktif</p>
+              <p className="text-2xl font-bold">18</p>
             </div>
             <Activity className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-green-600 mt-2">All active</p>
+          <p className="text-xs text-green-600 mt-2">Seluruh admin online</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">System Health</p>
-              <p className="text-2xl font-bold">99.9%</p>
+              <p className="text-sm text-muted-foreground mb-1">Total kas tersinkron</p>
+              <p className="text-2xl font-bold">Rp11.200.000</p>
             </div>
-            <TrendingUp className="w-10 h-10 text-primary/20" />
+            <Wallet2 className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-green-600 mt-2">Excellent</p>
+          <p className="text-xs text-muted-foreground mt-2">Periode Jan 2026</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Security Alerts</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-sm text-muted-foreground mb-1">Isu prioritas</p>
+              <p className="text-2xl font-bold">3</p>
             </div>
-            <AlertTriangle className="w-10 h-10 text-yellow-500/20" />
+            <AlertTriangle className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-yellow-600 mt-2">Requires review</p>
+          <p className="text-xs text-yellow-600 mt-2">Butuh follow-up</p>
         </Card>
       </div>
 
-      {/* Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card className="p-6">
-          <h3 className="font-semibold mb-6">User Growth & Admin Distribution</h3>
+          <h3 className="font-semibold mb-6">Pertumbuhan komunitas & admin</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analyticsData}>
+            <LineChart data={orgTrend}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
+              <XAxis dataKey="month" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
               <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="users" stroke="#3b82f6" name="Total Users" />
-              <Line yAxisId="right" type="monotone" dataKey="admins" stroke="#8b5cf6" name="Admins" />
+              <Line yAxisId="left" type="monotone" dataKey="communities" stroke="#0ea5e9" name="Komunitas" />
+              <Line yAxisId="right" type="monotone" dataKey="admins" stroke="#8b5cf6" name="Admin" />
             </LineChart>
           </ResponsiveContainer>
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-semibold mb-6">System Activity</h3>
+          <h3 className="font-semibold mb-6">Total kas tersinkron</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={analyticsData}>
+            <AreaChart data={orgTrend}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
+              <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
-              <Area type="monotone" dataKey="activity" fill="#3b82f6" stroke="#3b82f6" />
+              <Area type="monotone" dataKey="totalKas" fill="#0ea5e9" stroke="#0ea5e9" name="Kas (juta)" />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* Audit Logs */}
       <Card className="p-6 mb-6">
-        <h3 className="font-semibold mb-6">Audit Trail</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={auditData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
+        <h3 className="font-semibold mb-6">Risiko & pengecualian</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={riskData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" />
+            <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="logins" stroke="#3b82f6" name="Logins" />
-            <Line type="monotone" dataKey="changes" stroke="#8b5cf6" name="Changes" />
-            <Line type="monotone" dataKey="errors" stroke="#ef4444" name="Errors" />
-          </LineChart>
+            <Bar dataKey="count" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </Card>
 
-      {/* Admin & System Management */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h3 className="font-semibold mb-4">Admin Management</h3>
+          <h3 className="font-semibold mb-4">Admin aktif</h3>
           <div className="space-y-3">
             {[
-              { name: "John Admin", role: "Admin IT", status: "Active", department: "IT Operations" },
-              { name: "Jane Manager", role: "Admin IT", status: "Active", department: "Security" },
-              { name: "Mike Super", role: "Super Admin", status: "Active", department: "Executive" },
+              { name: "Dina", role: "Bendahara A", status: "Active" },
+              { name: "Raka", role: "Bendahara B", status: "Active" },
+              { name: "Luna", role: "Super Admin", status: "Active" },
             ].map((admin, index) => (
               <div key={index} className="p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">{admin.name}</p>
                   <span className="text-xs px-2 py-1 bg-green-500/10 text-green-700 rounded">{admin.status}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {admin.role} • {admin.department}
-                </p>
+                <p className="text-xs text-muted-foreground">{admin.role}</p>
               </div>
             ))}
           </div>
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-semibold mb-4">Recent Audit Events</h3>
+          <h3 className="font-semibold mb-4">Log audit terbaru</h3>
           <div className="space-y-3">
             {[
-              { event: "Admin created", user: "John", time: "1 hour ago" },
-              { event: "Role permission updated", user: "Admin", time: "3 hours ago" },
-              { event: "Security policy changed", user: "Super Admin", time: "1 day ago" },
-              { event: "System backup completed", user: "System", time: "2 days ago" },
+              { event: "Admin ditambah", user: "Luna", time: "1 jam lalu" },
+              { event: "Atur nominal kas", user: "Dina", time: "3 jam lalu" },
+              { event: "Update hak akses", user: "Super Admin", time: "1 hari lalu" },
+              { event: "Backup selesai", user: "System", time: "2 hari lalu" },
             ].map((audit, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
                   <p className="text-sm font-medium">{audit.event}</p>
-                  <p className="text-xs text-muted-foreground">by {audit.user}</p>
+                  <p className="text-xs text-muted-foreground">oleh {audit.user}</p>
                 </div>
                 <span className="text-xs text-muted-foreground">{audit.time}</span>
               </div>

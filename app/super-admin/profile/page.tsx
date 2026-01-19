@@ -33,10 +33,9 @@ export default function SuperAdminProfile() {
   return (
     <>
       <SuccessToast open={showSuccess} onClose={() => setShowSuccess(false)} message="Foto profil berhasil diperbarui" />
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Super Admin Profile</h1>
-        <p className="text-muted-foreground">Manage your account with full system access</p>
+        <h1 className="text-3xl font-bold mb-2">Profil Super Admin</h1>
+        <p className="text-muted-foreground">Kelola akun dengan akses penuh seluruh komunitas kas.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -97,7 +96,7 @@ export default function SuperAdminProfile() {
         {/* Profile Info */}
         <Card className="p-6 lg:col-span-3">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-semibold">Account Information</h3>
+            <h3 className="font-semibold">Informasi akun</h3>
             <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
               {isEditing ? "Cancel" : "Edit"}
             </Button>
@@ -236,7 +235,7 @@ export default function SuperAdminProfile() {
 
       {/* Account Information */}
       <Card className="mt-6 p-6">
-        <h3 className="font-semibold mb-4">Account Information</h3>
+        <h3 className="font-semibold mb-4">Informasi akun</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div>
             <p className="text-muted-foreground mb-1">Super Admin ID</p>

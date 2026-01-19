@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, User, LogOut, Settings, Users, BarChart3, Shield, Lock } from "lucide-react"
+import { LayoutDashboard, User, LogOut, Settings, Users, Shield, Wallet2, History, ClipboardList, CalendarClock } from "lucide-react"
 import { useState } from "react"
 
 interface SidebarProps {
@@ -21,39 +21,34 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Menu items based on role
   const getMenuItems = () => {
-    const baseItems = [
-      {
-        href: `/${user.role}/dashboard`,
-        label: "Dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        href: `/${user.role}/profile`,
-        label: "Profile",
-        icon: User,
-      },
-    ]
-
     if (user.role === "admin") {
       return [
-        ...baseItems,
-        { href: "/admin/datauser", label: "Data User", icon: Users },
-        { href: "/admin/logs", label: "System Logs", icon: BarChart3 },
-        { href: "/admin/settings", label: "Settings", icon: Settings },
+        { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/admin/payments", label: "Setoran Masuk", icon: Wallet2 },
+        { href: "/admin/schedules", label: "Jadwal Bayar", icon: CalendarClock },
+        { href: "/admin/datauser", label: "Anggota", icon: Users },
+        { href: "/admin/profile", label: "Profil", icon: User },
       ]
     }
 
     if (user.role === "super-admin") {
       return [
-        ...baseItems,
-        { href: "/super-admin/admin-management", label: "Admin Management", icon: Shield },
-        { href: "/super-admin/role-management", label: "Role Management", icon: Lock },
-        { href: "/super-admin/analytics", label: "Analytics", icon: BarChart3 },
-        { href: "/super-admin/settings", label: "Settings", icon: Settings },
+        { href: "/super-admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/super-admin/admin-management", label: "Kelola Admin", icon: Shield },
+        { href: "/super-admin/datauser", label: "Anggota", icon: Users },
+        { href: "/super-admin/payments", label: "Laporan Setoran", icon: Wallet2 },
+        { href: "/super-admin/profile", label: "Profil", icon: User },
       ]
     }
 
-    return baseItems
+    // default: user
+    return [
+      { href: "/user/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/user/payments", label: "Pembayaran", icon: Wallet2 },
+      { href: "/user/schedules", label: "Jadwal Bayar", icon: CalendarClock },
+      { href: "/user/history", label: "Riwayat", icon: History },
+      { href: "/user/profile", label: "Profile", icon: User },
+    ]
   }
 
   const menuItems = getMenuItems()
@@ -71,9 +66,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-6 flex flex-col h-full">
           {/* Logo */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-sidebar-primary">
-              Admin<span className="text-primary">Hub</span>
-            </h1>
+            <h1 className="text-2xl font-bold text-sidebar-primary">Kas<span className="text-primary">Mingguan</span></h1>
           </div>
 
           {/* User Info */}

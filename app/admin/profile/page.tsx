@@ -33,10 +33,9 @@ export default function AdminProfile() {
   return (
     <>
       <SuccessToast open={showSuccess} onClose={() => setShowSuccess(false)} message="Foto profil berhasil diperbarui" />
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Profile</h1>
-        <p className="text-muted-foreground">Manage your admin account and preferences</p>
+        <h1 className="text-3xl font-bold mb-2">Profil Bendahara</h1>
+        <p className="text-muted-foreground">Kelola akun bendahara dan preferensi penagihan kas.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -94,7 +93,7 @@ export default function AdminProfile() {
         {/* Profile Info */}
         <Card className="p-6 lg:col-span-3">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-semibold">Personal Information</h3>
+            <h3 className="font-semibold">Informasi personal</h3>
             <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
               {isEditing ? "Cancel" : "Edit"}
             </Button>
@@ -123,12 +122,9 @@ export default function AdminProfile() {
 
             {/* Department */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Department</label>
+              <label className="text-sm font-medium mb-2 block">Divisi</label>
               {isEditing ? (
-                <Input
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                />
+                <Input value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
               ) : (
                 <p className="text-sm text-muted-foreground">{formData.department}</p>
               )}
@@ -210,7 +206,7 @@ export default function AdminProfile() {
 
       {/* Account Information */}
       <Card className="mt-6 p-6">
-        <h3 className="font-semibold mb-4">Account Information</h3>
+        <h3 className="font-semibold mb-4">Informasi akun</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div>
             <p className="text-muted-foreground mb-1">Admin ID</p>

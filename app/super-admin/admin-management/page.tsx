@@ -13,6 +13,8 @@ interface ManagedAdmin {
   email: string
   role: "admin" | "super-admin" | "user"
   created_at: string
+  last_payment_status?: string | null
+  last_payment_week?: string | null
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
@@ -182,8 +184,8 @@ export default function AdminManagementPage() {
         <CardHeader className="flex flex-col gap-2">
           <div className="flex items-center gap-3 flex-wrap">
             <div>
-              <CardTitle>Kelola Admin IT</CardTitle>
-              <CardDescription>Super Admin dapat membuat, mengubah, dan menghapus Admin IT.</CardDescription>
+              <CardTitle>Kelola Admin Bendahara</CardTitle>
+              <CardDescription>Tambah/ubah/hapus admin yang mengelola kas di masing-masing komunitas.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -218,6 +220,7 @@ export default function AdminManagementPage() {
                   <tr className="border-b text-left">
                     <th className="py-2 pr-4">Nama</th>
                     <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">Status Bayar</th>
                     <th className="py-2 pr-4">Role</th>
                     <th className="py-2 pr-4">Dibuat</th>
                     <th className="py-2 pr-4 text-right">Aksi</th>
@@ -228,6 +231,14 @@ export default function AdminManagementPage() {
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="py-2 pr-4">{a.name}</td>
                       <td className="py-2 pr-4">{a.email}</td>
+                      <td className="py-2 pr-4">
+                        <span className={`text-xs px-2 py-1 rounded ${a.last_payment_status === 'approved' ? 'bg-green-500/10 text-green-700' : 'bg-amber-500/10 text-amber-700'}`}>
+                          {a.last_payment_status === 'approved' ? 'Lunas' : a.last_payment_status || 'Belum bayar'}
+                        </span>
+                        {a.last_payment_week && (
+                          <p className="text-[11px] text-muted-foreground mt-1">{a.last_payment_week}</p>
+                        )}
+                      </td>
                       <td className="py-2 pr-4 capitalize">{a.role.replace("-", " ")}</td>
                       <td className="py-2 pr-4 text-muted-foreground">{new Date(a.created_at).toLocaleString()}</td>
                       <td className="py-2 pr-4 text-right space-x-2">

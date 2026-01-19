@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Loader2, Plus, Save, Trash2, CreditCard, CheckCircle2 } from "lucide-react"
 
 interface ManagedUser {
   id: number
@@ -13,6 +13,10 @@ interface ManagedUser {
   email: string
   role: "user" | "admin" | "super-admin"
   created_at: string
+  last_payment_status?: string | null
+  last_payment_week?: string | null
+  last_payment_amount?: number | null
+  last_payment_method?: string | null
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
@@ -20,6 +24,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 export default function AdminDataUserPage() {
   const { user } = useAuth()
   const [users, setUsers] = useState<ManagedUser[]>([])
+  const [paymentStatus, setPaymentStatus] = useState<Record<number, string>>({})
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [selectedUserForPayment, setSelectedUserForPayment] = useState<ManagedUser | null>(null)
+  const [paymentForm, setPaymentForm] = useState({ amount: 50000, method: "QRIS", week: "Minggu 3" })
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +57,20 @@ export default function AdminDataUserPage() {
 
   useEffect(() => {
     fetchUsers()
+    void fetchSchedules()
   }, [token])
+
+  const fetchSchedules = async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/schedules`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const d = await res.json().catch(() => null)
+      setSchedules(d?.data || [])
+    } catch (err) {
+      // ignore
+    }
+  }
 
   async function fetchUsers() {
     if (!token) return
@@ -62,13 +85,21 @@ export default function AdminDataUserPage() {
       })
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body?.message || "Gagal memuat data user")
+          const body = await res.json().catch(() => ({}))
+          const msg = body?.message || `Gagal memuat data user (status ${res.status})`
+          throw new Error(msg)
       }
 
       const data = await res.json()
       const onlyUsers = (data.data || []).filter((u: ManagedUser) => u.role === 'user')
       setUsers(onlyUsers)
+      const mapping: Record<number, string> = {}
+      ;(onlyUsers || []).forEach((u: ManagedUser) => {
+        if (u.last_payment_status) {
+          mapping[u.id] = u.last_payment_status === 'approved' ? 'Lunas' : u.last_payment_status
+        }
+      })
+      setPaymentStatus(mapping)
       setMeta(data.meta ?? null)
       setError(null)
     } catch (err) {
@@ -200,6 +231,59 @@ export default function AdminDataUserPage() {
     setEditModalOpen(true)
   }
 
+  const openPaymentModal = (u: ManagedUser) => {
+    setSelectedUserForPayment(u)
+    setPaymentForm({ amount: 50000, method: "QRIS", week: "Minggu 3" })
+    setSelectedScheduleId(null)
+    setPaymentModalOpen(true)
+  }
+
+  const submitPayment = async () => {
+    if (!selectedUserForPayment) return
+    if (!token) {
+      setError("Token tidak ditemukan. Silakan login ulang.")
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError(null)
+
+      const formData = new FormData()
+      formData.append('amount', String(paymentForm.amount))
+      formData.append('method', paymentForm.method)
+      formData.append('week_label', paymentForm.week)
+      formData.append('user_id', String(selectedUserForPayment.id))
+      if (selectedScheduleId) formData.append('schedule_id', String(selectedScheduleId))
+
+      const res = await fetch(`${API_BASE_URL}/payments`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.message || 'Gagal mencatat pembayaran')
+      }
+
+      const body = await res.json().catch(() => null)
+      const paymentStatusFromApi = body?.data?.status as string | undefined
+      if (paymentStatusFromApi) {
+        setPaymentStatus((prev) => ({ ...prev, [selectedUserForPayment.id]: paymentStatusFromApi === 'approved' ? 'Lunas' : paymentStatusFromApi }))
+      }
+
+      setPaymentModalOpen(false)
+      setSelectedUserForPayment(null)
+      await fetchUsers()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal mencatat pembayaran'
+      setError(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDelete = async (id: number) => {
     if (!token) {
       setError("Token tidak ditemukan. Silakan login ulang.")
@@ -275,7 +359,7 @@ export default function AdminDataUserPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <CardTitle>{title}</CardTitle>
-              <CardDescription>Kelola data user. Admin dapat membuat, mengubah, dan menghapus user.</CardDescription>
+              <CardDescription>Kelola data anggota kas. Tambah/edit/hapus akun anggota.</CardDescription>
             </div>
 
           </div>
@@ -364,7 +448,7 @@ export default function AdminDataUserPage() {
             <div className="flex justify-end ml-4">
               <Button type="button" onClick={() => setQuickModalOpen(true)} disabled={saving} className="gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Create User Biasa
+                Tambah anggota cepat
               </Button>
             </div>
           </div>
@@ -381,6 +465,7 @@ export default function AdminDataUserPage() {
                   <tr className="border-b text-left">
                     <th className="py-2 pr-4">Nama</th>
                     <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">Status Bayar</th>
                     <th className="py-2 pr-4">Role</th>
                     <th className="py-2 pr-4">Dibuat</th>
                     <th className="py-2 pr-4 text-right">Aksi</th>
@@ -391,9 +476,17 @@ export default function AdminDataUserPage() {
                     <tr key={u.id} className="border-b last:border-0">
                       <td className="py-2 pr-4">{u.name}</td>
                       <td className="py-2 pr-4">{u.email}</td>
+                      <td className="py-2 pr-4">
+                        <span className={`text-xs px-2 py-1 rounded ${paymentStatus[u.id] === "Lunas" ? "bg-green-500/10 text-green-700" : "bg-amber-500/10 text-amber-700"}`}>
+                          {paymentStatus[u.id] || "Belum bayar"}
+                        </span>
+                      </td>
                       <td className="py-2 pr-4 capitalize">{u.role.replace("-", " ")}</td>
                       <td className="py-2 pr-4 text-muted-foreground">{new Date(u.created_at).toLocaleString()}</td>
                       <td className="py-2 pr-4 text-right space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => openPaymentModal(u)}>
+                          Bayar
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => handleEdit(u)}>
                           Edit
                         </Button>
@@ -529,6 +622,74 @@ export default function AdminDataUserPage() {
                 <Button type="submit" disabled={saving} className="gap-2">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Simpan</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {paymentModalOpen && selectedUserForPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg shadow-lg w-full max-w-md border p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Bayar Kas - {selectedUserForPayment.name}</h3>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  setPaymentModalOpen(false)
+                  setSelectedUserForPayment(null)
+                }}
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Jumlah</label>
+                <Input
+                  type="number"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Metode</label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground"
+                  value={paymentForm.method}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+                >
+                  <option value="QRIS">QRIS</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="Tunai">Tunai</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Minggu</label>
+                <Input value={paymentForm.week} onChange={(e) => setPaymentForm({ ...paymentForm, week: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Jadwal (opsional)</label>
+                <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground" value={selectedScheduleId ?? ""} onChange={(e) => setSelectedScheduleId(e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">-- Tidak ada --</option>
+                  {schedules.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label || `${s.start_date}${s.end_date ? ` — ${s.end_date}` : ''}`}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPaymentModalOpen(false)
+                  setSelectedUserForPayment(null)
+                }}
+              >
+                Batal
+              </Button>
+              <Button onClick={() => submitPayment()} className="gap-2">
+                <CreditCard className="w-4 h-4" /> Bayar
+              </Button>
+            </div>
           </div>
         </div>
       )}
