@@ -3,25 +3,61 @@
 import { useAuth } from "@/lib/auth-context"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, AlertTriangle, Activity, ShieldCheck, Wallet2, Building2 } from "lucide-react"
+import { AlertTriangle, Activity, ShieldCheck, Wallet2, Building2 } from "lucide-react"
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from "recharts"
+import { useEffect, useState } from "react"
 
 export default function SuperAdminDashboard() {
   const { user } = useAuth()
 
-  const orgTrend = [
-    { month: "Sep", communities: 8, admins: 12, totalKas: 8.2 },
-    { month: "Oct", communities: 9, admins: 14, totalKas: 9.1 },
-    { month: "Nov", communities: 10, admins: 15, totalKas: 9.8 },
-    { month: "Dec", communities: 11, admins: 17, totalKas: 10.4 },
-    { month: "Jan", communities: 12, admins: 18, totalKas: 11.2 },
-  ]
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
 
-  const riskData = [
-    { name: "Telat >7 hari", count: 4 },
-    { name: "Belum verifikasi", count: 7 },
-    { name: "Saldo minimum", count: 2 },
-  ]
+  const [metrics, setMetrics] = useState<any>({})
+  const [orgTrend, setOrgTrend] = useState<any[]>([])
+  const [riskData, setRiskData] = useState<any[]>([])
+  const [activeAdmins, setActiveAdmins] = useState<any[]>([])
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      const token = localStorage.getItem("authToken")
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/dashboard/super-admin`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body?.message || "Gagal memuat dashboard")
+        }
+
+        const json = await res.json()
+        const data = json?.data || {}
+        setMetrics(data.metrics || {})
+        setOrgTrend(data.org_trend || [])
+        setRiskData(data.risk_data || [])
+        setActiveAdmins(data.active_admins || [])
+        setAuditLogs(data.audit_logs || [])
+      } catch (err: any) {
+        console.error(err)
+        setError(err?.message || "Tidak dapat memuat data")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboard()
+  }, [])
+
+  if (loading) return <p className="text-muted-foreground">Memuat dashboard...</p>
+  if (error) return <p className="text-red-500">{error}</p>
 
   return (
     <>
@@ -43,40 +79,40 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total komunitas</p>
-              <p className="text-2xl font-bold">12</p>
+              <p className="text-2xl font-bold">{metrics?.communities ?? 0}</p>
             </div>
             <Building2 className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-green-600 mt-2">+1 bulan ini</p>
+          <p className="text-xs text-green-600 mt-2">Data sinkron</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Admin aktif</p>
-              <p className="text-2xl font-bold">18</p>
+              <p className="text-2xl font-bold">{metrics?.admins ?? 0}</p>
             </div>
             <Activity className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-green-600 mt-2">Seluruh admin online</p>
+          <p className="text-xs text-green-600 mt-2">Peran admin terdaftar</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Total kas tersinkron</p>
-              <p className="text-2xl font-bold">Rp11.200.000</p>
+              <p className="text-2xl font-bold">Rp{(metrics?.total_kas ?? 0).toLocaleString("id-ID")}</p>
             </div>
             <Wallet2 className="w-10 h-10 text-primary/20" />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Periode Jan 2026</p>
+          <p className="text-xs text-muted-foreground mt-2">Periode berjalan</p>
         </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Isu prioritas</p>
-              <p className="text-2xl font-bold">3</p>
+              <p className="text-2xl font-bold">{metrics?.issues ?? 0}</p>
             </div>
             <AlertTriangle className="w-10 h-10 text-primary/20" />
           </div>
@@ -90,7 +126,7 @@ export default function SuperAdminDashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={orgTrend}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="name" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
@@ -106,10 +142,10 @@ export default function SuperAdminDashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={orgTrend}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Area type="monotone" dataKey="totalKas" fill="#0ea5e9" stroke="#0ea5e9" name="Kas (juta)" />
+              <Area type="monotone" dataKey="total" fill="#0ea5e9" stroke="#0ea5e9" name="Kas" />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -132,11 +168,8 @@ export default function SuperAdminDashboard() {
         <Card className="p-6">
           <h3 className="font-semibold mb-4">Admin aktif</h3>
           <div className="space-y-3">
-            {[
-              { name: "Dina", role: "Bendahara A", status: "Active" },
-              { name: "Raka", role: "Bendahara B", status: "Active" },
-              { name: "Luna", role: "Super Admin", status: "Active" },
-            ].map((admin, index) => (
+            {activeAdmins.length === 0 && <p className="text-sm text-muted-foreground">Belum ada admin tercatat.</p>}
+            {activeAdmins.map((admin, index) => (
               <div key={index} className="p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">{admin.name}</p>
@@ -151,12 +184,8 @@ export default function SuperAdminDashboard() {
         <Card className="p-6">
           <h3 className="font-semibold mb-4">Log audit terbaru</h3>
           <div className="space-y-3">
-            {[
-              { event: "Admin ditambah", user: "Luna", time: "1 jam lalu" },
-              { event: "Atur nominal kas", user: "Dina", time: "3 jam lalu" },
-              { event: "Update hak akses", user: "Super Admin", time: "1 hari lalu" },
-              { event: "Backup selesai", user: "System", time: "2 hari lalu" },
-            ].map((audit, index) => (
+            {auditLogs.length === 0 && <p className="text-sm text-muted-foreground">Belum ada log terbaru.</p>}
+            {auditLogs.map((audit, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
                   <p className="text-sm font-medium">{audit.event}</p>

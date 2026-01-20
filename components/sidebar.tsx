@@ -45,7 +45,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     return [
       { href: "/user/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/user/payments", label: "Pembayaran", icon: Wallet2 },
-      { href: "/user/schedules", label: "Jadwal Bayar", icon: CalendarClock },
       { href: "/user/history", label: "Riwayat", icon: History },
       { href: "/user/profile", label: "Profile", icon: User },
     ]

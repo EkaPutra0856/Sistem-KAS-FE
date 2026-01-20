@@ -1,11 +1,12 @@
 "use client"
 
+import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Users, CheckCircle2, Wallet2, AlertTriangle, CalendarClock, ArrowUpRight, Upload, Bell } from "lucide-react"
+import { Users, CheckCircle2, Wallet2, AlertTriangle, CalendarClock, ArrowUpRight, Upload, Bell, AlertCircle } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
 import { useEffect, useState } from "react"
 import SuccessToast from "@/components/success-toast"
@@ -17,19 +18,35 @@ export default function AdminDashboard() {
   const [payments, setPayments] = useState<any[]>([])
   const [usersList, setUsersList] = useState<any[]>([])
   const [schedules, setSchedules] = useState<any[]>([])
+  const [reminders, setReminders] = useState<any[]>([])
+  const [nextDueDays, setNextDueDays] = useState<number | null>(null)
+  const [adminSummary, setAdminSummary] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
+  const [reminderModalOpen, setReminderModalOpen] = useState(false)
+  const [channelEmail, setChannelEmail] = useState(false)
+  const [channelWhatsapp, setChannelWhatsapp] = useState(false)
+  const [channelError, setChannelError] = useState<string | null>(null)
+  const [savingChannels, setSavingChannels] = useState(false)
+  const [contactState, setContactState] = useState({
+    emailVerified: false,
+    whatsappVerified: false,
+    hasPhone: false,
+    hasEmail: false,
+  })
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true)
       const token = localStorage.getItem("authToken")
       try {
-        const [pRes, uRes, sRes] = await Promise.all([
+        const [pRes, uRes, sRes, dRes, meRes] = await Promise.all([
           fetch(`${API_BASE_URL}/payments?per_page=1000`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/datausers?per_page=1000`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/schedules`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/dashboard/admin`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }),
         ])
 
         if (pRes.ok) {
@@ -45,6 +62,27 @@ export default function AdminDashboard() {
         if (sRes.ok) {
           const sJson = await sRes.json()
           setSchedules(sJson.data || [])
+        }
+
+        if (dRes.ok) {
+          const dJson = await dRes.json()
+          const data = dJson.data || {}
+          setReminders(data.reminders || [])
+          setNextDueDays(data.days_to_next_due ?? null)
+          setAdminSummary(data.summary || null)
+        }
+
+        if (meRes.ok) {
+          const meJson = await meRes.json()
+          const meUser = meJson.user || {}
+          setChannelEmail(!!meUser.reminder_email_enabled)
+          setChannelWhatsapp(!!meUser.reminder_whatsapp_enabled)
+          setContactState({
+            emailVerified: !!meUser.email_verified,
+            whatsappVerified: !!meUser.whatsapp_verified,
+            hasPhone: !!meUser.phone,
+            hasEmail: !!meUser.email,
+          })
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data", err)
@@ -69,6 +107,12 @@ export default function AdminDashboard() {
 
   const tunggakanCount = usersList.filter((u) => u.last_payment_status !== "approved").length
 
+  const scheduleDate = adminSummary?.current_schedule?.end_date || adminSummary?.current_schedule?.start_date
+  const dueDateText = scheduleDate
+    ? new Date(scheduleDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+    : "Belum dijadwalkan"
+  const dueCountdown = nextDueDays !== null ? `${Math.max(nextDueDays, 0)} hari lagi` : "Jatuh tempo belum diatur"
+
   // build weeklyCollections from payments grouped by week_label
   const weekMap: Record<string, { paid: number; target: number }> = {}
   payments.forEach((p) => {
@@ -88,8 +132,8 @@ export default function AdminDashboard() {
   })
   const monthlyTrend = Object.keys(monthMap).map((k) => ({ name: k, total: monthMap[k].total }))
 
-  const monthlyTarget = usersList.length ? usersList.length * 50000 * 4 : 1200000
-  const progressPercent = Math.min(100, Math.round((totalCollectedThisMonth / monthlyTarget) * 100))
+  const monthlyTarget = adminSummary?.monthly_target || (usersList.length ? usersList.length * 50000 * 4 : 1200000)
+  const progressPercent = Math.min(100, Math.round((totalCollectedThisMonth / (monthlyTarget || 1)) * 100))
 
   const approvePayment = async (id: number) => {
     const token = localStorage.getItem("authToken")
@@ -147,19 +191,49 @@ export default function AdminDashboard() {
     }
   }
 
-  const sendReminder = async () => {
+  const openReminderModal = () => {
+    setChannelError(null)
+    setReminderModalOpen(true)
+  }
+
+  const saveReminderChannels = async () => {
     const token = localStorage.getItem("authToken")
+    if (!token) return
+
     try {
-      const res = await fetch(`${API_BASE_URL}/payments?status=pending&per_page=1000`, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error("Failed to fetch pending")
-      const json = await res.json()
-      const count = (json.data || []).length
-      setToastMessage(`Pengingat terkirim ke ${count} anggota`)
+      setSavingChannels(true)
+      setChannelError(null)
+      const res = await fetch(`${API_BASE_URL}/auth/reminder-channels`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reminder_email_enabled: channelEmail,
+          reminder_whatsapp_enabled: channelWhatsapp,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body?.message || "Gagal menyimpan pengingat")
+      }
+
+      setChannelEmail(!!body.reminder_email_enabled)
+      setChannelWhatsapp(!!body.reminder_whatsapp_enabled)
+      setContactState({
+        emailVerified: body.email_verified ?? contactState.emailVerified,
+        whatsappVerified: body.whatsapp_verified ?? contactState.whatsappVerified,
+        hasPhone: contactState.hasPhone,
+        hasEmail: contactState.hasEmail,
+      })
+      setToastMessage("Preferensi pengingat disimpan")
       setToastOpen(true)
-    } catch (err) {
-      console.error(err)
-      setToastMessage("Gagal mengirim pengingat")
-      setToastOpen(true)
+      setReminderModalOpen(false)
+    } catch (err: any) {
+      setChannelError(err?.message || "Gagal menyimpan pengingat")
+    } finally {
+      setSavingChannels(false)
     }
   }
 
@@ -171,7 +245,7 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold">Halo, {user?.name}</h1>
           <p className="text-muted-foreground mt-1">Pantau setoran masuk, tunggakan, dan antrian verifikasi.</p>
         </div>
-        <Button className="gap-2" onClick={sendReminder}>
+        <Button className="gap-2" onClick={openReminderModal}>
           Kirim pengingat
           <Bell className="w-4 h-4" />
         </Button>
@@ -248,18 +322,21 @@ export default function AdminDashboard() {
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Reminder minggu ini</h3>
           <div className="space-y-3">
-            {["Kirim broadcast WA", "Update kanal grup", "Posting bukti rekap"].map((task) => (
-              <div key={task} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-                <span className="text-sm">{task}</span>
-                <Badge variant="outline">Prioritas</Badge>
+            {reminders.length === 0 && (
+              <div className="text-sm text-muted-foreground">Belum ada pengingat baru.</div>
+            )}
+            {reminders.map((task, idx) => (
+              <div key={idx} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+                <span className="text-sm">{task.title}</span>
+                <Badge variant="outline">{task.value ?? "Prioritas"}</Badge>
               </div>
             ))}
           </div>
           <div className="rounded-lg border border-border/60 p-4">
             <p className="text-sm font-medium">Estimasi jatuh tempo</p>
-            <p className="text-2xl font-bold mt-1">3 hari lagi</p>
-            <p className="text-xs text-muted-foreground">Sabtu, 23 Jan 2026</p>
-            <Button variant="outline" size="sm" className="mt-3 gap-2">
+            <p className="text-2xl font-bold mt-1">{dueCountdown}</p>
+            <p className="text-xs text-muted-foreground">{dueDateText}</p>
+            <Button variant="outline" size="sm" className="mt-3 gap-2" onClick={openReminderModal}>
               Kirim pengingat
               <ArrowUpRight className="w-4 h-4" />
             </Button>
@@ -335,6 +412,66 @@ export default function AdminDashboard() {
           ))}
         </div>
       </Card>
+
+      {reminderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg shadow-lg w-full max-w-lg border p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Atur pengingat</h3>
+              <Button variant="ghost" size="icon" onClick={() => setReminderModalOpen(false)}>✕</Button>
+            </div>
+            <p className="text-sm text-muted-foreground">Aktifkan kanal pengingat untuk mengirim via email atau WhatsApp. Pastikan kontak sudah diisi dan terverifikasi.</p>
+
+            {channelError && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{channelError}</span>
+                </div>
+                <Link href="/admin/profile" className="text-sm font-semibold underline underline-offset-4">Ke profil</Link>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-md border p-4">
+                <div>
+                  <p className="font-medium text-sm">Email</p>
+                  <p className="text-xs text-muted-foreground">{contactState.emailVerified ? "Email terverifikasi" : "Belum verifikasi email"}</p>
+                </div>
+                <Button
+                  variant={channelEmail ? "default" : "outline"}
+                  onClick={() => setChannelEmail(!channelEmail)}
+                  disabled={!contactState.hasEmail}
+                  className={!contactState.hasEmail ? "opacity-60" : ""}
+                >
+                  {channelEmail ? "ON" : "OFF"}
+                </Button>
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-4">
+                <div>
+                  <p className="font-medium text-sm">WhatsApp</p>
+                  <p className="text-xs text-muted-foreground">{contactState.whatsappVerified ? "WA terverifikasi" : "Isi & verifikasi nomor WA"}</p>
+                </div>
+                <Button
+                  variant={channelWhatsapp ? "default" : "outline"}
+                  onClick={() => setChannelWhatsapp(!channelWhatsapp)}
+                  disabled={!contactState.hasPhone}
+                  className={!contactState.hasPhone ? "opacity-60" : ""}
+                >
+                  {channelWhatsapp ? "ON" : "OFF"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setReminderModalOpen(false)}>Batal</Button>
+              <Button onClick={saveReminderChannels} disabled={savingChannels} className="gap-2">
+                {savingChannels ? "Menyimpan..." : "Simpan"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

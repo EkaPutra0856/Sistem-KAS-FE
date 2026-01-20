@@ -18,6 +18,7 @@ type WeekItem = {
 export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: number; onSelectWeek?: (label: string, dueDate?: string | null) => void }) {
   const [items, setItems] = useState<WeekItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedSaturday, setSelectedSaturday] = useState<string | null>(null)
   const { user } = useAuth()
 
   const token = useMemo(() => {
@@ -112,6 +113,15 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
       })
 
       setItems(list)
+
+      // auto-select current week (if inside schedule)
+      const thisYmd = thisSaturday.toISOString().slice(0, 10)
+      const found = list.find((it) => it.saturday === thisYmd)
+      if (found && found.inSchedule) {
+        setSelectedSaturday(found.saturday)
+        onSelectWeek?.(found.label, found.due_date)
+      }
+
       setLoading(false)
     }
 
@@ -170,14 +180,35 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
       <div className="flex gap-3 overflow-x-auto py-2">
         {items.map((it) => {
           const color = getColor(it)
-          const circleClass = color === 'green' ? 'bg-green-600 text-white' : color === 'blue' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+          const circleClass =
+            color === 'green'
+              ? 'bg-green-600 text-white'
+              : color === 'blue'
+              ? 'bg-blue-600 text-white'
+              : color === 'red'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-600 text-white'
+          const isSelected = selectedSaturday === it.saturday
+          const disabled = it.inSchedule === false || it.inSchedule === undefined
+
           return (
             <button
               key={it.saturday}
-              onClick={() => onSelectWeek?.(it.label, it.due_date)}
-              className="flex-shrink-0 w-28 p-3 rounded-lg border border-border/60 hover:shadow-sm"
-              title={`Sabtu ${it.saturday} — ${it.status ?? 'Belum ada bukti'}`}
-            >
+              onClick={() => {
+                if (disabled) return
+                setSelectedSaturday(it.saturday)
+                onSelectWeek?.(it.label, it.due_date)
+              }}
+              aria-pressed={isSelected}
+              aria-disabled={disabled}
+              className={`flex-shrink-0 w-28 p-3 rounded-lg border transition-transform duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60 ${
+                disabled
+                  ? 'border-border/60 bg-muted/30 opacity-60 cursor-not-allowed'
+                  : isSelected
+                  ? 'border-primary bg-primary/5 shadow-md'
+                  : 'border-border/60 hover:shadow-sm hover:-translate-y-0.5 hover:border-primary/50'
+              }`}
+              title={disabled ? 'Minggu ini belum dijadwalkan oleh admin' : `Sabtu ${it.saturday} — ${it.status ?? 'Belum ada bukti'}`}>
               <div className="flex items-center justify-center">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${circleClass}`}>{new Date(it.saturday).getDate()}</div>
               </div>
