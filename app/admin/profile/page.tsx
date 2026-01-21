@@ -20,6 +20,7 @@ export default function AdminProfile() {
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
+    phone: user?.phone || "",
     department: "IT Operations",
     currentPassword: "",
     newPassword: "",
@@ -128,6 +129,21 @@ export default function AdminProfile() {
               ) : (
                 <p className="text-sm text-muted-foreground">{formData.department}</p>
               )}
+            </div>
+
+            {/* WhatsApp */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">WhatsApp</label>
+              {isEditing ? (
+                <Input
+                  value={formData.phone}
+                  placeholder="e.g. 62812xxxx"
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">{formData.phone || "Belum diisi"}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Nomor ini dipakai untuk verifikasi dan pengingat WA.</p>
             </div>
 
             {isEditing && (

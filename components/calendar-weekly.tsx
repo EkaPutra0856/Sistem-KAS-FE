@@ -90,7 +90,8 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
           if (!schedules || schedules.length === 0) return false
           for (let i = 0; i < schedules.length; i++) {
             const start = new Date(schedules[i].start_date)
-            const end = schedules[i].end_date ? new Date(schedules[i].end_date) : null
+            const endRaw = schedules[i].end_date ?? null
+            const end = endRaw ? new Date(endRaw) : null
             if (end) {
               if (d >= start && d <= end) return true
             } else {
@@ -201,7 +202,7 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
               }}
               aria-pressed={isSelected}
               aria-disabled={disabled}
-              className={`flex-shrink-0 w-28 p-3 rounded-lg border transition-transform duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60 ${
+              className={`shrink-0 w-28 p-3 rounded-lg border transition-transform duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60 ${
                 disabled
                   ? 'border-border/60 bg-muted/30 opacity-60 cursor-not-allowed'
                   : isSelected
