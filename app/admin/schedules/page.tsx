@@ -14,8 +14,14 @@ export default function AdminSchedulesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [form, setForm] = useState({ label: "", start_date: "", end_date: "", active: true })
+  const [form, setForm] = useState({ label: "", start_date: "", end_date: "", active: true, pay_day_of_week: 5 })
   const token = useMemo(() => (typeof window === "undefined" ? null : localStorage.getItem("authToken")), [])
+
+  const payDayLabel = (value?: number | null) => {
+    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
+    if (value === undefined || value === null) return "-"
+    return days[value] ?? "-"
+  }
 
   useEffect(() => {
     void fetchSchedules()
@@ -36,15 +42,15 @@ export default function AdminSchedulesPage() {
     }
   }
 
-  const openCreate = () => { setEditing(null); setForm({ label: "", start_date: "", end_date: "", active: true }); setModalOpen(true) }
-  const openEdit = (s: any) => { setEditing(s); setForm({ label: s.label || "", start_date: s.start_date?.slice(0,10) || "", end_date: s.end_date?.slice(0,10) || "", active: !!s.active }); setModalOpen(true) }
+  const openCreate = () => { setEditing(null); setForm({ label: "", start_date: "", end_date: "", active: true, pay_day_of_week: 5 }); setModalOpen(true) }
+  const openEdit = (s: any) => { setEditing(s); setForm({ label: s.label || "", start_date: s.start_date?.slice(0,10) || "", end_date: s.end_date?.slice(0,10) || "", active: !!s.active, pay_day_of_week: typeof s.pay_day_of_week === 'number' ? s.pay_day_of_week : 5 }); setModalOpen(true) }
 
   const save = async (e?: any) => {
     e?.preventDefault()
     if (!token) return
     try {
       setSaving(true)
-      const payload = { label: form.label || null, start_date: form.start_date, end_date: form.end_date || null, active: form.active }
+      const payload = { label: form.label || null, start_date: form.start_date, end_date: form.end_date || null, active: form.active, pay_day_of_week: form.pay_day_of_week }
       const url = editing ? `${API_BASE_URL}/schedules/${editing.id}` : `${API_BASE_URL}/schedules`
       const method = editing ? 'PUT' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) })
@@ -94,6 +100,7 @@ export default function AdminSchedulesPage() {
                   <div>
                     <div className="font-medium">{s.label || `Mulai ${s.start_date?.slice(0,10)}`}</div>
                     <div className="text-xs text-muted-foreground">{s.start_date?.slice(0,10)}{s.end_date ? ` — ${s.end_date?.slice(0,10)}` : ''}</div>
+                    <div className="text-xs text-muted-foreground">Hari bayar: {payDayLabel(s.pay_day_of_week)}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEdit(s)}>Edit</Button>
@@ -119,8 +126,20 @@ export default function AdminSchedulesPage() {
                 <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Tanggal mulai (pilih Sabtu)</label>
+                <label className="text-sm font-medium">Tanggal mulai jadwal</label>
                 <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Hari bayar mingguan</label>
+                <select
+                  className="border rounded-md px-3 py-2 text-sm w-full bg-background"
+                  value={form.pay_day_of_week}
+                  onChange={(e) => setForm({ ...form, pay_day_of_week: Number(e.target.value) })}
+                >
+                  {["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].map((label, idx) => (
+                    <option key={label} value={idx}>{label}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Tanggal akhir (opsional)</label>

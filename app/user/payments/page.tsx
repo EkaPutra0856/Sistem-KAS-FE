@@ -251,7 +251,7 @@ export default function UserPayments() {
           <div className="rounded-lg bg-muted/60 p-4 border border-border/60 text-sm space-y-2">
             <p className="font-semibold">Tips tertib kas</p>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li>Setor sebelum hari Sabtu untuk menghindari pengingat tambahan.</li>
+              <li>Setor sebelum hari bayar yang ditetapkan admin agar tidak kena pengingat.</li>
               <li>Gunakan QRIS agar verifikasi lebih cepat.</li>
               <li>Pastikan nominal sesuai agar status langsung lunas.</li>
             </ul>
