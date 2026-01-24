@@ -9,6 +9,22 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CreditCard, QrCode, Banknote, Upload, ArrowUpRight, ShieldCheck, CalendarClock, Loader2 } from "lucide-react"
 
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        callbacks?: {
+          onSuccess?: (result?: unknown) => void
+          onPending?: (result?: unknown) => void
+          onError?: (error?: unknown) => void
+          onClose?: () => void
+        }
+      ) => void
+    }
+  }
+}
+
 interface PaymentRow {
   id: number
   week_label: string
@@ -20,6 +36,8 @@ interface PaymentRow {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
+const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
+const MIDTRANS_IS_PRODUCTION = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
 
 export default function UserPayments() {
   const [amount, setAmount] = useState("50000")
@@ -35,6 +53,23 @@ export default function UserPayments() {
   const token = useMemo(() => {
     if (typeof window === "undefined") return null
     return localStorage.getItem("authToken")
+  }, [])
+
+  useEffect(() => {
+    if (!MIDTRANS_CLIENT_KEY || typeof window === "undefined") return
+    if (document.getElementById("midtrans-snap-script")) return
+
+    const script = document.createElement("script")
+    script.id = "midtrans-snap-script"
+    script.src = MIDTRANS_IS_PRODUCTION
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js"
+    script.setAttribute("data-client-key", MIDTRANS_CLIENT_KEY)
+    document.body.appendChild(script)
+
+    return () => {
+      script.remove()
+    }
   }, [])
 
   useEffect(() => {
@@ -63,18 +98,48 @@ export default function UserPayments() {
     }
   }
 
+  const payWithSnap = (snapToken: string) => {
+    if (!snapToken) return
+    if (!MIDTRANS_CLIENT_KEY) {
+      setError("MIDTRANS client key belum diset di FE. Tambahkan NEXT_PUBLIC_MIDTRANS_CLIENT_KEY.")
+      return
+    }
+    if (!window.snap) {
+      setError("Snap belum siap. Muat ulang halaman dan coba lagi.")
+      return
+    }
+
+    window.snap.pay(snapToken, {
+      onSuccess: () => {
+        void fetchPayments()
+      },
+      onPending: () => {
+        void fetchPayments()
+      },
+      onError: () => {
+        setError("Pembayaran gagal. Silakan coba lagi atau gunakan metode lain.")
+        void fetchPayments()
+      },
+      onClose: () => {
+        setError("Pembayaran dibatalkan sebelum selesai.")
+      },
+    })
+  }
+
   const submitPayment = async () => {
     if (!token) {
       setError("Token tidak ditemukan. Silakan login ulang.")
       return
     }
 
+    const methodForBackend = selectedMethod === "Tunai Tercatat" ? "Tunai" : "Transfer/Qris"
+
     try {
       setSubmitting(true)
       setError(null)
       const form = new FormData()
       form.append('amount', amount)
-      form.append('method', selectedMethod)
+      form.append('method', methodForBackend)
       form.append('week_label', weekLabel)
       if (dueDate) form.append('due_date', dueDate)
       if (file) form.append('proof', file)
@@ -85,12 +150,17 @@ export default function UserPayments() {
         body: form,
       })
 
+      const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
         throw new Error(body?.message || 'Gagal mengirim pembayaran')
       }
 
-      await fetchPayments()
+      const snapToken = body?.data?.snap_token
+      if (snapToken) {
+        payWithSnap(snapToken)
+      } else {
+        await fetchPayments()
+      }
       setFile(null)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Gagal mengirim pembayaran'

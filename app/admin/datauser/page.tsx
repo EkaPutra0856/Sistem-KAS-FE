@@ -7,6 +7,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Plus, Save, Trash2, CreditCard, CheckCircle2 } from "lucide-react"
 
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        callbacks?: {
+          onSuccess?: (result?: unknown) => void
+          onPending?: (result?: unknown) => void
+          onError?: (error?: unknown) => void
+          onClose?: () => void
+        }
+      ) => void
+    }
+  }
+}
+
 interface ManagedUser {
   id: number
   name: string
@@ -20,6 +36,8 @@ interface ManagedUser {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
+const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
+const MIDTRANS_IS_PRODUCTION = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
 
 export default function AdminDataUserPage() {
   const { user } = useAuth()
@@ -27,7 +45,7 @@ export default function AdminDataUserPage() {
   const [paymentStatus, setPaymentStatus] = useState<Record<number, string>>({})
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [selectedUserForPayment, setSelectedUserForPayment] = useState<ManagedUser | null>(null)
-  const [paymentForm, setPaymentForm] = useState({ amount: 50000, method: "QRIS", week: "Minggu 3" })
+  const [paymentForm, setPaymentForm] = useState({ amount: 50000, method: "Transfer/Qris", week: "Minggu 3" })
   const [schedules, setSchedules] = useState<any[]>([])
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -53,6 +71,23 @@ export default function AdminDataUserPage() {
   const token = useMemo(() => {
     if (typeof window === "undefined") return null
     return localStorage.getItem("authToken")
+  }, [])
+
+  useEffect(() => {
+    if (!MIDTRANS_CLIENT_KEY || typeof window === "undefined") return
+    if (document.getElementById("midtrans-snap-script")) return
+
+    const script = document.createElement("script")
+    script.id = "midtrans-snap-script"
+    script.src = MIDTRANS_IS_PRODUCTION
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js"
+    script.setAttribute("data-client-key", MIDTRANS_CLIENT_KEY)
+    document.body.appendChild(script)
+
+    return () => {
+      script.remove()
+    }
   }, [])
 
   useEffect(() => {
@@ -233,9 +268,33 @@ export default function AdminDataUserPage() {
 
   const openPaymentModal = (u: ManagedUser) => {
     setSelectedUserForPayment(u)
-    setPaymentForm({ amount: 50000, method: "QRIS", week: "Minggu 3" })
+    setPaymentForm({ amount: 50000, method: "Transfer/Qris", week: "Minggu 3" })
     setSelectedScheduleId(null)
     setPaymentModalOpen(true)
+  }
+
+  const payWithSnap = (snapToken: string) => {
+    if (!snapToken) return
+    if (!MIDTRANS_CLIENT_KEY) {
+      setError("MIDTRANS client key belum diset di FE. Tambahkan NEXT_PUBLIC_MIDTRANS_CLIENT_KEY.")
+      return
+    }
+    if (!window.snap) {
+      setError("Snap belum siap. Muat ulang halaman dan coba lagi.")
+      return
+    }
+
+    window.snap.pay(snapToken, {
+      onSuccess: () => { void fetchUsers() },
+      onPending: () => { void fetchUsers() },
+      onError: () => {
+        setError("Pembayaran gagal. Silakan coba lagi atau gunakan metode lain.")
+        void fetchUsers()
+      },
+      onClose: () => {
+        setError("Pembayaran dibatalkan sebelum selesai.")
+      },
+    })
   }
 
   const submitPayment = async () => {
@@ -249,9 +308,11 @@ export default function AdminDataUserPage() {
       setSaving(true)
       setError(null)
 
+      const methodForBackend = paymentForm.method === 'Tunai' ? 'Tunai' : 'Transfer/Qris'
+
       const formData = new FormData()
       formData.append('amount', String(paymentForm.amount))
-      formData.append('method', paymentForm.method)
+      formData.append('method', methodForBackend)
       formData.append('week_label', paymentForm.week)
       formData.append('user_id', String(selectedUserForPayment.id))
       if (selectedScheduleId) formData.append('schedule_id', String(selectedScheduleId))
@@ -262,20 +323,26 @@ export default function AdminDataUserPage() {
         body: formData,
       })
 
+      const body = await res.json().catch(() => ({}))
+
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
         throw new Error(body?.message || 'Gagal mencatat pembayaran')
       }
 
-      const body = await res.json().catch(() => null)
       const paymentStatusFromApi = body?.data?.status as string | undefined
       if (paymentStatusFromApi) {
         setPaymentStatus((prev) => ({ ...prev, [selectedUserForPayment.id]: paymentStatusFromApi === 'approved' ? 'Lunas' : paymentStatusFromApi }))
       }
 
+      const snapToken = body?.data?.snap_token
+      if (snapToken) {
+        payWithSnap(snapToken)
+      } else {
+        await fetchUsers()
+      }
+
       setPaymentModalOpen(false)
       setSelectedUserForPayment(null)
-      await fetchUsers()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal mencatat pembayaran'
       setError(message)
@@ -657,8 +724,7 @@ export default function AdminDataUserPage() {
                   value={paymentForm.method}
                   onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
                 >
-                  <option value="QRIS">QRIS</option>
-                  <option value="Transfer">Transfer</option>
+                  <option value="Transfer/Qris">QRIS / Transfer Bank</option>
                   <option value="Tunai">Tunai</option>
                 </select>
               </div>
