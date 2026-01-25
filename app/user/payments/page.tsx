@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CreditCard, QrCode, Banknote, Upload, ArrowUpRight, ShieldCheck, CalendarClock, Loader2 } from "lucide-react"
+import { CreditCard, QrCode, Banknote, Upload, ArrowUpRight, ShieldCheck, CalendarClock, Loader2, Type } from "lucide-react"
 
 declare global {
   interface Window {
@@ -43,8 +43,7 @@ export default function UserPayments() {
   const [amount, setAmount] = useState("50000")
   const [weekLabel, setWeekLabel] = useState("Kas Minggu ke-3")
   const [dueDate, setDueDate] = useState("")
-  const [selectedMethod, setSelectedMethod] = useState("QRIS")
-  const [file, setFile] = useState<File | null>(null)
+  const [selectedMethod, setSelectedMethod] = useState("Transfer/Qris")
   const [payments, setPayments] = useState<PaymentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -56,19 +55,17 @@ export default function UserPayments() {
   }, [])
 
   useEffect(() => {
-    if (!MIDTRANS_CLIENT_KEY || typeof window === "undefined") return
+    // if (!MIDTRANS_CLIENT_KEY || typeof window === "undefined") return
     if (document.getElementById("midtrans-snap-script")) return
 
     const script = document.createElement("script")
     script.id = "midtrans-snap-script"
-    script.src = MIDTRANS_IS_PRODUCTION
-      ? "https://app.midtrans.com/snap/snap.js"
-      : "https://app.sandbox.midtrans.com/snap/snap.js"
+    script.src = "https://app.sandbox.midtrans.com/snap/snap.js"
     script.setAttribute("data-client-key", MIDTRANS_CLIENT_KEY)
     document.body.appendChild(script)
 
     return () => {
-      script.remove()
+      // script.remove()
     }
   }, [])
 
@@ -132,37 +129,60 @@ export default function UserPayments() {
       return
     }
 
+    // 1. PASTIKAN METHOD SESUAI BACKEND
+    // Jika Tunai -> "Tunai", Jika tidak -> "Transfer/Qris"
     const methodForBackend = selectedMethod === "Tunai Tercatat" ? "Tunai" : "Transfer/Qris"
 
     try {
       setSubmitting(true)
       setError(null)
-      const form = new FormData()
-      form.append('amount', amount)
-      form.append('method', methodForBackend)
-      form.append('week_label', weekLabel)
-      if (dueDate) form.append('due_date', dueDate)
-      if (file) form.append('proof', file)
+
+      // 2. BERSIHKAN DATA SEBELUM KIRIM
+      // Hapus karakter non-angka dari amount, lalu ubah jadi Integer (PENTING!)
+      const cleanAmount = parseInt(amount.toString().replace(/\D/g, ''));
+
+      const payload = {
+        amount: cleanAmount, // Kirim angka murni (50000), bukan string "50000"
+        method: methodForBackend,
+        week_label: weekLabel,
+        // Kirim due_date hanya jika ada isinya
+        ...(dueDate && { due_date: dueDate }),
+      }
+
+      console.log("Mengirim Payload:", payload); // Debugging 1
 
       const res = await fetch(`${API_BASE_URL}/payments`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       })
 
       const body = await res.json().catch(() => ({}))
+      console.log("Respon Backend:", body); // Debugging 2
+
       if (!res.ok) {
         throw new Error(body?.message || 'Gagal mengirim pembayaran')
       }
 
       const snapToken = body?.data?.snap_token
+      
+      // 3. LOGIKA POPUP
       if (snapToken) {
+        console.log("Token ditemukan, membuka Snap...");
         payWithSnap(snapToken)
       } else {
+        // Jika method Qris tapi token kosong, berarti ada masalah di Backend
+        if (methodForBackend === "Transfer/Qris") {
+            console.error("Token kosong padahal method Qris!");
+            alert("Sistem gagal membuat Token pembayaran. Cek Backend.");
+        }
         await fetchPayments()
       }
-      setFile(null)
     } catch (err) {
+      console.error("Error Submit:", err);
       const msg = err instanceof Error ? err.message : 'Gagal mengirim pembayaran'
       setError(msg)
     } finally {
@@ -172,16 +192,10 @@ export default function UserPayments() {
 
   const methods = [
     {
-      title: "QRIS",
-      description: "Scan dan bayar instan. Verifikasi otomatis dalam hitungan menit.",
-      icon: QrCode,
-      badge: "Paling cepat",
-    },
-    {
-      title: "Transfer Bank",
-      description: "Kirim ke rekening bendahara. Unggah bukti transfer untuk verifikasi.",
+      title: "Transfer/Qris",
+      description: "Scan QRIS atau transfer ke rekening yang disediakan, verifikasi otomatis.",
       icon: Banknote,
-      badge: "Manual cek",
+      badge: "Verifikasi otomatis",
     },
     {
       title: "Tunai Tercatat",
@@ -262,23 +276,22 @@ export default function UserPayments() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Unggah bukti (opsional untuk QRIS/transfer)</p>
-            <div className="border border-dashed rounded-lg p-4 flex flex-col gap-3 items-start bg-muted/40">
-              <p className="text-sm text-muted-foreground">Seret file atau pilih untuk unggah.</p>
-              <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              {file && <p className="text-xs text-muted-foreground">File: {file.name}</p>}
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
           <div className="flex flex-wrap gap-3">
             <Button className="gap-2" onClick={() => void submitPayment()} disabled={submitting}>
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              Tandai lunas
+              {selectedMethod === "Tunai Tercatat" ? "Konfirmasi Tunai" : "Bayar Sekarang"}
             </Button>
-            <Button variant="outline" onClick={() => setFile(null)} disabled={submitting}>Reset</Button>
+            <Button 
+                variant="outline" 
+                onClick={() => {
+                    setAmount("50000")
+                    setWeekLabel("Kas Minggu ke-...") 
+                    setDueDate("")
+                }} 
+                disabled={submitting}
+            >
+                Reset
+            </Button>
           </div>
         </Card>
 
