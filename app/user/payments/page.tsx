@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CreditCard, QrCode, Banknote, Upload, ArrowUpRight, ShieldCheck, CalendarClock, Loader2, Type } from "lucide-react"
+import { CreditCard, QrCode, Banknote, Upload, ArrowUpRight, ShieldCheck, CalendarClock, Loader2, HandCoins } from "lucide-react"
 
 declare global {
   interface Window {
@@ -39,6 +39,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
 const MIDTRANS_IS_PRODUCTION = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
 
+type FeeInfo = {
+  title?: string | null
+  description?: string | null
+  amount_per_week?: number | null
+  badge_1?: string | null
+  badge_2?: string | null
+  badge_3?: string | null
+}
+
 export default function UserPayments() {
   const [amount, setAmount] = useState("50000")
   const [weekLabel, setWeekLabel] = useState("Kas Minggu ke-3")
@@ -48,6 +57,8 @@ export default function UserPayments() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [feeInfo, setFeeInfo] = useState<FeeInfo | null>(null)
+  const [feeInfoLoading, setFeeInfoLoading] = useState(false)
 
   const token = useMemo(() => {
     if (typeof window === "undefined") return null
@@ -71,7 +82,28 @@ export default function UserPayments() {
 
   useEffect(() => {
     void fetchPayments()
+    void fetchFeeInfo()
   }, [token])
+
+  const fetchFeeInfo = async () => {
+    if (!token) return
+    try {
+      setFeeInfoLoading(true)
+      const res = await fetch(`${API_BASE_URL}/fee-info`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Gagal memuat info iuran')
+      const data = await res.json().catch(() => ({}))
+      setFeeInfo(data.data || null)
+      if (data?.data?.amount_per_week) {
+        setAmount(String(data.data.amount_per_week))
+      }
+    } catch (err) {
+      // keep silent, fallback to defaults
+    } finally {
+      setFeeInfoLoading(false)
+    }
+  }
 
   const fetchPayments = async () => {
     if (!token) return
@@ -221,6 +253,35 @@ export default function UserPayments() {
         <h1 className="text-3xl font-bold">Bayar tagihan kamu</h1>
         <p className="text-muted-foreground mt-2">Pilih metode, isi nominal, unggah bukti bila perlu, lalu tandai lunas.</p>
       </div>
+
+      <Card className="p-4 border-dashed bg-muted/40 space-y-2">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-primary/10 text-primary p-2">
+            <HandCoins className="w-4 h-4" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-semibold text-sm">{feeInfo?.title || "Iuran ini dipakai untuk apa?"}</p>
+            <p className="text-sm text-muted-foreground">
+              {feeInfo?.description || "Dana kas mingguan Rp50.000 dipakai untuk kebersihan lingkungan, listrik sekretariat, kas darurat, dan bantuan sosial komunitas."}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          {(feeInfo?.amount_per_week || feeInfoLoading) && (
+            <Badge variant="secondary">Nominal: Rp{(feeInfo?.amount_per_week || 50000).toLocaleString("id-ID")}/minggu</Badge>
+          )}
+          {feeInfo?.badge_1 && <Badge variant="outline">{feeInfo.badge_1}</Badge>}
+          {feeInfo?.badge_2 && <Badge variant="outline">{feeInfo.badge_2}</Badge>}
+          {feeInfo?.badge_3 && <Badge variant="outline">{feeInfo.badge_3}</Badge>}
+          {!feeInfo && !feeInfoLoading && (
+            <>
+              <Badge variant="secondary">Nominal tetap: Rp50.000/minggu</Badge>
+              <Badge variant="outline">Jatuh tempo sesuai jadwal admin</Badge>
+              <Badge variant="outline">Gunakan QRIS/transfer untuk verifikasi cepat</Badge>
+            </>
+          )}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
         <Card className="p-6 space-y-6">

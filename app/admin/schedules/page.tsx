@@ -15,6 +15,16 @@ export default function AdminSchedulesPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [form, setForm] = useState({ label: "", start_date: "", end_date: "", active: true, pay_day_of_week: 5 })
+  const [feeInfoLoading, setFeeInfoLoading] = useState(false)
+  const [feeInfoSaving, setFeeInfoSaving] = useState(false)
+  const [feeInfoForm, setFeeInfoForm] = useState({
+    title: "",
+    description: "",
+    amount_per_week: 50000,
+    badge_1: "",
+    badge_2: "",
+    badge_3: "",
+  })
   const token = useMemo(() => (typeof window === "undefined" ? null : localStorage.getItem("authToken")), [])
 
   const payDayLabel = (value?: number | null) => {
@@ -25,7 +35,50 @@ export default function AdminSchedulesPage() {
 
   useEffect(() => {
     void fetchSchedules()
+    void fetchFeeInfo()
   }, [token])
+
+  const fetchFeeInfo = async () => {
+    if (!token) return
+    try {
+      setFeeInfoLoading(true)
+      const res = await fetch(`${API_BASE_URL}/fee-info`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      const d = data?.data || {}
+      setFeeInfoForm({
+        title: d.title || "",
+        description: d.description || "",
+        amount_per_week: d.amount_per_week ?? 50000,
+        badge_1: d.badge_1 || "",
+        badge_2: d.badge_2 || "",
+        badge_3: d.badge_3 || "",
+      })
+    } catch (err) {
+      // ignore
+    } finally {
+      setFeeInfoLoading(false)
+    }
+  }
+
+  const saveFeeInfo = async () => {
+    if (!token) return
+    try {
+      setFeeInfoSaving(true)
+      await fetch(`${API_BASE_URL}/fee-info`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(feeInfoForm),
+      })
+    } catch (err) {
+      // ignore
+    } finally {
+      setFeeInfoSaving(false)
+    }
+  }
 
   const fetchSchedules = async () => {
     if (!token) return
@@ -77,6 +130,60 @@ export default function AdminSchedulesPage() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Informasi Iuran</CardTitle>
+            <Button className="gap-2" onClick={saveFeeInfo} disabled={feeInfoSaving}>
+              {feeInfoSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Simpan info
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Teks ini muncul di halaman Pembayaran user agar mereka tahu iuran dipakai untuk apa.</p>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Judul</label>
+              <Input value={feeInfoForm.title} onChange={(e) => setFeeInfoForm({ ...feeInfoForm, title: e.target.value })} disabled={feeInfoLoading} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Deskripsi</label>
+              <textarea
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                rows={3}
+                value={feeInfoForm.description}
+                onChange={(e) => setFeeInfoForm({ ...feeInfoForm, description: e.target.value })}
+                disabled={feeInfoLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Nominal per minggu (Rp)</label>
+              <Input
+                type="number"
+                value={feeInfoForm.amount_per_week}
+                onChange={(e) => setFeeInfoForm({ ...feeInfoForm, amount_per_week: Number(e.target.value) })}
+                disabled={feeInfoLoading}
+              />
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Badge 1</label>
+              <Input value={feeInfoForm.badge_1} onChange={(e) => setFeeInfoForm({ ...feeInfoForm, badge_1: e.target.value })} disabled={feeInfoLoading} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Badge 2</label>
+              <Input value={feeInfoForm.badge_2} onChange={(e) => setFeeInfoForm({ ...feeInfoForm, badge_2: e.target.value })} disabled={feeInfoLoading} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Badge 3</label>
+              <Input value={feeInfoForm.badge_3} onChange={(e) => setFeeInfoForm({ ...feeInfoForm, badge_3: e.target.value })} disabled={feeInfoLoading} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

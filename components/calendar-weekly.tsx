@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
@@ -28,7 +29,11 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
   const [items, setItems] = useState<WeekItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
   const { user } = useAuth()
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  const pageSize = 12
 
   const token = useMemo(() => {
     if (typeof window === "undefined") return null
@@ -148,8 +153,15 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
       const thisYmd = thisPayDate.toISOString().slice(0, 10)
       const found = list.find((it) => it.payDate === thisYmd)
       if (found && found.inSchedule) {
+        const foundIdx = list.findIndex((it) => it.payDate === found.payDate)
+        if (foundIdx >= 0) {
+          const targetIdx = Math.max(0, foundIdx - 2) // tampilkan mulai 2 minggu sebelum
+          setPage(Math.floor(targetIdx / pageSize))
+        }
         setSelectedDate(found.payDate)
         onSelectWeek?.(found.label, found.due_date)
+      } else {
+        setPage(0)
       }
 
       setLoading(false)
@@ -157,6 +169,14 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
 
     void build()
   }, [token, weeks, user])
+
+  // keep page within bounds when data changes
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+    if (page > totalPages - 1) {
+      setPage(Math.max(0, totalPages - 1))
+    }
+  }, [items.length, page, pageSize])
 
   function getWeekNumberFromIndex(index: number, half: number) {
     // simple sequential label: current week is 0 -> Minggu 0; we prefer friendly numbering
@@ -200,14 +220,53 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
 
   if (loading) return <div className="text-sm text-muted-foreground">Memuat kalender...</div>
 
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const start = page * pageSize
+  const currentItems = items.slice(start, start + pageSize)
+
+  const goPage = (next: number) => {
+    const clamped = Math.max(0, Math.min(totalPages - 1, next))
+    setPage(clamped)
+    // reset scroll to start for the current page for consistent UX
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" })
+    })
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Kalender Mingguan</h3>
-        <p className="text-xs text-muted-foreground">Klik hari bayar untuk pilih minggu</p>
+    <div className="space-y-3 w-full max-w-full">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Kalender Mingguan</h3>
+          <p className="text-xs text-muted-foreground">Klik hari bayar untuk pilih minggu</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => goPage(page - 1)}
+            className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+            aria-label="Geser ke kiri"
+            disabled={page === 0}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-muted-foreground">Hal {page + 1} / {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => goPage(page + 1)}
+            className="rounded border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+            aria-label="Geser ke kanan"
+            disabled={page >= totalPages - 1}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
-      <div className="flex gap-3 overflow-x-auto py-2">
-        {items.map((it) => {
+      <div
+        ref={scrollRef}
+        className="grid w-full max-w-full grid-flow-col auto-cols-[minmax(90px,1fr)] sm:auto-cols-[minmax(100px,1fr)] md:auto-cols-[minmax(110px,1fr)] lg:auto-cols-[minmax(120px,1fr)] gap-2 overflow-x-auto py-2 snap-x snap-mandatory"
+      >
+        {currentItems.map((it) => {
           const color = getColor(it)
           const circleClass =
             color === 'green'
@@ -225,12 +284,14 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
               key={it.payDate}
               onClick={() => {
                 if (disabled) return
+                const globalIdx = items.findIndex((x) => x.payDate === it.payDate)
+                if (globalIdx >= 0) goPage(Math.floor(globalIdx / pageSize))
                 setSelectedDate(it.payDate)
                 onSelectWeek?.(it.label, it.due_date)
               }}
               aria-pressed={isSelected}
               aria-disabled={disabled}
-              className={`shrink-0 w-28 p-3 rounded-lg border transition-transform duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60 ${
+              className={`shrink-0 w-24 md:w-24 p-2.5 sm:p-3 rounded-lg border transition-transform duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60 snap-start ${
                 disabled
                   ? 'border-border/60 bg-muted/30 opacity-60 cursor-not-allowed'
                   : isSelected
@@ -239,7 +300,7 @@ export default function CalendarWeekly({ weeks = 12, onSelectWeek }: { weeks?: n
               }`}
               title={disabled ? 'Minggu ini belum dijadwalkan oleh admin' : `${it.dayName} ${it.payDate} — ${it.status ?? 'Belum ada bukti'}`}>
               <div className="flex items-center justify-center">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${circleClass}`}>{new Date(it.payDate).getDate()}</div>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${circleClass}`}>{new Date(it.payDate).getDate()}</div>
               </div>
               <div className="mt-2 text-center text-sm">
                 <div className="font-medium">{it.label}</div>
