@@ -18,7 +18,7 @@ export default function UserHistory() {
         <div>
           <p className="text-sm text-muted-foreground">Riwayat setoran kas</p>
           <h1 className="text-3xl font-bold">Transaksi kamu</h1>
-          <p className="text-muted-foreground mt-2">Lihat bukti, nominal, dan metode pembayaran.</p>
+          <p className="text-muted-foreground mt-2">Lihat bukti, nominal, dan metode pembayaran untuk iuran kebersihan, listrik, dan kas darurat komunitas.</p>
         </div>
         <Button variant="outline" className="gap-2">
           <Download className="w-4 h-4" />

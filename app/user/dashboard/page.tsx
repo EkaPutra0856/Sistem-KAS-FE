@@ -149,15 +149,16 @@ export default function UserDashboard() {
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Uang kas komunitas • Anggota</p>
+            <p className="text-sm text-muted-foreground">Iuran kas rutin komunitas</p>
             <h1 className="text-3xl font-bold">Halo, {user?.name}</h1>
           </div>
           <Badge variant="outline" className="text-sm">Role: {user?.role}</Badge>
         </div>
-        <p className="text-muted-foreground mt-2">Pantau tagihan kas mingguan, riwayat setoran, dan progres bulan ini.</p>
+        <p className="text-muted-foreground mt-2">Kas ini dipakai untuk operasional rutin (kebersihan, listrik, darurat) dan program sosial komunitas.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="overflow-x-auto pb-2">
+        <div className="grid grid-flow-col auto-cols-[minmax(240px,1fr)] gap-4 mb-8">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -166,6 +167,17 @@ export default function UserDashboard() {
               <p className="text-xs text-muted-foreground mt-1">{currentDueDate ? `Jatuh tempo ${currentDueDate}` : "Jatuh tempo belum tercatat"}</p>
             </div>
             <CalendarClock className="w-10 h-10 text-primary/20" />
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Apa yang kamu bayar</p>
+              <p className="text-base font-semibold">Iuran kas minggu berjalan</p>
+              <p className="text-xs text-muted-foreground mt-1">Dipakai untuk: kebersihan lingkungan, listrik sekretariat, dana sosial, dan kas darurat.</p>
+            </div>
+            <Clock3 className="w-10 h-10 text-primary/20" />
           </div>
         </Card>
 
@@ -215,6 +227,7 @@ export default function UserDashboard() {
             </Button>
           </div>
         </Card>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -276,20 +289,28 @@ export default function UserDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Tagihan aktif</h3>
-              <p className="text-sm text-muted-foreground">Fokus pada minggu berjalan</p>
+              <p className="text-sm text-muted-foreground">Minggu yang sedang berjalan dan jatuh tempo terdekat.</p>
             </div>
-            <Button size="sm" className="gap-2">
-              Bayar sekarang
-              <ArrowUpRight className="w-4 h-4" />
-            </Button>
+            <Link href="/user/payments" className="inline-flex">
+              <Button size="sm" className="gap-2">
+                Bayar / unggah bukti
+                <ArrowUpRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
           <div className="space-y-3">
+            {activeBills.length === 0 && (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                Tidak ada tagihan aktif. Jika jadwal baru diterbitkan, akan muncul di sini.
+              </div>
+            )}
             {activeBills.map((bill) => (
               <div key={bill.id} className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{bill.label}</p>
                   <p className="text-lg font-semibold">Rp{bill.amount.toLocaleString("id-ID")}</p>
                   <p className="text-xs text-muted-foreground">Jatuh tempo {bill.due}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Tujuan: kebersihan, listrik, dan kas darurat komunitas.</p>
                 </div>
                 <Badge variant={bill.status === "Lunas" ? "outline" : "secondary"}>{bill.status}</Badge>
               </div>
